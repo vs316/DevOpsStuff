@@ -1,0 +1,121 @@
+expt 4: 
+sudo su
+sudo apt update
+sudo systemctl start apache2
+sudo systemctl status apache2
+cd /var/www/html/
+sudo nano index.html
+
+expt 9: ansible role
+Make sure you create an IAM role with AmazonEC2FullAccess policy and attach the role to  ubuntu EC2 instance. login to instance
+sudo hostnamectl set-hostname AnsibleMgmtNode
+sudo apt update
+sudo apt install -y ansible
+sudo apt install python3-pip -y
+sudo pip3 install boto boto3
+pip list boto | grep boto
+ ansible --version
+Create an Inventory file first:
+sudo mkdir /etc/ansible
+sudo nano /etc/ansible/hosts
+
+add:
+[localhost]
+local
+
+cd ~
+mkdir roles  
+cd roles
+
+Create Ansible Role:
+ansible-galaxy role init aws-infra-role
+
+sudo nano aws-infra-role/vars/main.yml
+(copy below content)
+keypair: myNov2023Key
+instance_type: t2.small
+image: ami-007855ac798b5175e
+wait: yes
+group: webserver
+region: us-east-1
+security_group: my-jenkins-security-grp1
+
+sg:
+sudo nano aws-infra-role/tasks/create-sg.yml
+---
+  - include_vars: "vars/main.yml"
+    tags: create
+
+# tasks file for security group
+  - name: configuring security group for the instance
+    ec2_group:
+        name: "{{ security_group }}"
+        description: my-ajenkin-security_groAup
+        region: "{{ region }}"
+        rules:
+            - proto: tcp
+              from_port: 22
+              to_port: 22
+              cidr_ip: 0.0.0.0/0
+            - proto: tcp
+              from_port: 80
+              to_port: 80
+              cidr_ip: 0.0.0.0/0
+            - proto: tcp
+              from_port: 8080
+              to_port: 8080
+              cidr_ip: 0.0.0.0/0
+        rules_egress:
+            - proto: all
+              cidr_ip: 0.0.0.0/0
+
+sudo nano aws-infra-role/tasks/create-ec2.yml
+
+---
+  - include_vars: "vars/main.yml"
+    tags: create
+  - name: creating ec2 instance
+    ec2_instance:
+        security_group: "{{ security_group }}"
+        name: test-stan
+        key_name: "{{ keypair }}"
+        instance_type: "{{ instance_type}}"
+        image_id: "{{ image }}"
+        region: "{{ region }}"
+        wait_timeout: 2   
+
+sudo nano aws-infra-role/tasks/create-s3.yml                  
+---
+  - include_vars: "vars/main.yml"
+    tags: create
+  - name: creating s3 bucket
+
+    s3_bucket:
+      name: myansibles3bucket1234
+      state: present
+      region: "{{ region }}"
+      versioning: yes
+      tags:
+        name: myansiblebucket
+        type: example
+    register: s3_url
+
+  - name: Display s3 url
+    debug: var=s3_url       
+main ansible playbook:
+sudo nano aws-infra-role/main.yml
+---
+# This Playbook creates infra in aws cloud
+
+- hosts: local
+  connection: local
+  gather_facts: False
+  tags: ec2_create
+
+  tasks:
+  - include: tasks/create-sg.yml
+  - include: tasks/create-ec2.yml
+  - include: tasks/create-s3.yml 
+
+now execute the ansible playbook by
+ansible-playbook aws-infra-role/main.yml

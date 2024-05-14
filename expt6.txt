@@ -1,0 +1,46 @@
+1. create an ubuntu ec2 instance and ssh in.
+sudo nano /etc/netplan/01-netcfg.yaml
+network:
+    version: 2
+    ethernets:
+        eth0:
+        dhcp4: true
+
+sudo chmod 600 /etc/netplan/01-netcfg.yaml
+
+sudo nano /etc/netplan/50-cloud-init.yaml
+network:
+    version:2
+        ethernets:
+            eth0:
+            dhcp4: true
+
+sudo chmod 600 /etc/netplan/50-cloud-init.yaml
+
+sudo apt-get update
+sudo apt-get install -y netplan.io
+sudo apt install openvswitch -switch
+sudo netplan apply
+sudo systemctl start ovsdb -server
+sudo name/etc/hosts
+add:
+    172.31.24.231   test1
+ping test1
+
+sudo systemctl enable ssh
+sudo systemctl start ssh
+sudo systemctl stop ssh
+sudo systemctl status ssh
+(ctrl+Z)
+
+sudo apt install apache2
+sudo nano /etc/apache2/apache2.conf
+add:
+Global conf:
+ServerName 172.31.24.231
+
+sudo apache2ctl configtest
+sudo apache2ctl restart
+sudo tail -f /var/log/apache2/access.log
+sudo tail -f /var/log/apache2/error.log
+sudo systemctl restart apache2
